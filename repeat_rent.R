@@ -6,19 +6,19 @@ library(data.table)
 library(gtools)
 library(purrr)
 
-#vdf1 <- read.csv('vdf1.csv')
-data <- read.csv('nw6_data_sale.csv')
-data$price <- log(data$price)
+data <- read.csv('rent_data_agg.csv')
+
+data$price <- log(data$Average)
 
 repeat_sales <- function(df){
   
-  if (nrow(df) < 10){
+  if (nrow(df) < 3){
     return(list('NONE'))
   }
   
-  rsdf <- repsaledata(df$price, df$year, df$address)
+  rsdf <- repsaledata(df$price, df$Year, df$beds)
   
-  if (nrow(rsdf) < 10){
+  if (nrow(rsdf) < 3){
     return(list('NONE'))
   }
   
@@ -32,7 +32,7 @@ repeat_sales <- function(df){
   rsdf <- merge(rsdf, indexs)
   
   rsdf$model.pindex <- na.locf(rsdf$model.pindex, fromLast = TRUE)
-    
+  
   rsdf$predi <- rsdf$price0+rsdf$model.pindex
   
   cor.test(rsdf$predi, rsdf$price1)
@@ -60,20 +60,19 @@ fix_lists <- function(nest_list) {
   to_delete <- list()
   for (i in (1:length(nest_list))){
     if (length(nest_list[[i]])!=1) 
+    {
+      for (missing in (length(nest_list[[i]]):max_len))
       {
-        for (missing in (length(nest_list[[i]]):max_len))
-          {
-            nest_list[[i]][[paste('Time', missing, sep = ' ')]] <- 0
-          }
-    nest_list[[i]] <- data.frame(nest_list[[i]])
+        nest_list[[i]][[paste('Time', missing, sep = ' ')]] <- 0
       }
+      nest_list[[i]] <- data.frame(nest_list[[i]])
+    }
   }
   df <- data.frame(nest_list)
   colnames(df) <- c(1:length(colnames(df)))
   return(df)
 }
 
-data <- segment_beds(data)
-datadf<-fix_lists(data)
-write.csv(datadf, '.rsi_index_per_bed.csv')
-
+data_s <- segment_beds(data)
+datadf<-fix_lists(data_s)
+write.csv(datadf, '.rri_index_per_bed_2011_to_2019.csv')
