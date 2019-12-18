@@ -44,8 +44,8 @@ segment_beds <- function(df){
   
   i <- 1
   indexs_list <- list()
-  for (n_beds in sort(unique(data$beds))) {
-    subdata <- data[data$beds==n_beds,]
+  for (n_beds in sort(unique(df$beds))) {
+    subdata <- df[df$beds==n_beds,]
     indexs <- repeat_sales(subdata)
     indexs_list[i] <- list(indexs)
     i <- i + 1
@@ -57,14 +57,15 @@ fix_lists <- function(nest_list) {
   
   lens <- unlist(map(.x = nest_list, .f = length))
   max_len <- max(lens)
-  to_delete <- list()
   for (i in (1:length(nest_list))){
-    if (length(nest_list[[i]])!=1) 
+    if (length(nest_list[[i]])!=1 & length(nest_list[[i]])<max_len)
     {
+      
       for (missing in (length(nest_list[[i]]):max_len))
       {
         nest_list[[i]][[paste('Time', missing, sep = ' ')]] <- 0
       }
+      
       nest_list[[i]] <- data.frame(nest_list[[i]])
     }
   }
@@ -72,7 +73,6 @@ fix_lists <- function(nest_list) {
   colnames(df) <- c(1:length(colnames(df)))
   return(df)
 }
-
 data_s <- segment_beds(data)
 datadf<-fix_lists(data_s)
 write.csv(datadf, '.rri_index_per_bed_2011_to_2019.csv')

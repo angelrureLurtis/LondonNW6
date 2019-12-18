@@ -6,8 +6,8 @@ library(data.table)
 library(gtools)
 library(purrr)
 
-#vdf1 <- read.csv('vdf1.csv')
 data <- read.csv('nw6_data_sale.csv')
+
 data$price <- log(data$price)
 
 repeat_sales <- function(df){
@@ -44,8 +44,8 @@ segment_beds <- function(df){
   
   i <- 1
   indexs_list <- list()
-  for (n_beds in sort(unique(data$beds))) {
-    subdata <- data[data$beds==n_beds,]
+  for (n_beds in sort(unique(df$beds))) {
+    subdata <- df[df$beds==n_beds,]
     indexs <- repeat_sales(subdata)
     indexs_list[i] <- list(indexs)
     i <- i + 1
@@ -57,14 +57,15 @@ fix_lists <- function(nest_list) {
   
   lens <- unlist(map(.x = nest_list, .f = length))
   max_len <- max(lens)
-  to_delete <- list()
   for (i in (1:length(nest_list))){
-    if (length(nest_list[[i]])!=1) 
+    if (length(nest_list[[i]])!=1 & length(nest_list[[i]])<max_len)
       {
+      
         for (missing in (length(nest_list[[i]]):max_len))
           {
             nest_list[[i]][[paste('Time', missing, sep = ' ')]] <- 0
-          }
+        }
+      
     nest_list[[i]] <- data.frame(nest_list[[i]])
       }
   }
@@ -73,7 +74,9 @@ fix_lists <- function(nest_list) {
   return(df)
 }
 
-data <- segment_beds(data)
-datadf<-fix_lists(data)
+datas <- segment_beds(data)
+datadf<-fix_lists(datas)
+colnames(datadf) <- c(0:(length(colnames(datadf))-1))
+rownames(datadf)[1] <- "Time 1"
 write.csv(datadf, '.rsi_index_per_bed.csv')
 
