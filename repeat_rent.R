@@ -73,6 +73,9 @@ fix_lists <- function(nest_list) {
   colnames(df) <- c(1:length(colnames(df)))
   return(df)
 }
-data_s <- segment_beds(data)
-datadf<-fix_lists(data_s)
+
+datas <- segment_beds(data)
+datadf<-fix_lists(datas)
+colnames(datadf) <- c(0:(length(colnames(datadf))-1))
+rownames(datadf)[1] <- "Time 1"
 write.csv(datadf, '.rri_index_per_bed_2011_to_2019.csv')
