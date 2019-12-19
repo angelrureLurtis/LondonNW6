@@ -1,4 +1,9 @@
 
+import pandas as pd
+import json
+import requests
+
+
 def remove_multidim_outliers(df, columns, target, IQRm):
     """
     Removes outliers from multidimensional data.
@@ -26,3 +31,121 @@ def remove_multidim_outliers(df, columns, target, IQRm):
     print('Removed {n_outs} points ({per_total:2.1f}%)'.format(n_outs=(df.shape[0]-df_no.shape[0]), per_total=(df.shape[0]-df_no.shape[0])*100/df.shape[0]))
 
     return df_no
+
+
+def prepare_query(data, fh=10, freq='M', method='sep-all', 
+                  column_time='ds', column_data='y', format='%Y'):
+    """
+    Takes a dataset and a set of parameters and preparares a
+    query to be sent to the Alphamethods API.
+    
+    Parameters:
+        
+        data (pandas.DataFrame): A pandas Dataframe with exactly
+                                 two columns called "ds" and "y"
+                                 or select them with column_time
+                                 and column_data.
+        fh (int): forecasting horizon to make the predictions.
+        freq (str): frequency for the predictions. 'A' for Annually
+                    'M' for Monthly, etc.
+        method (str): pending to be defined in the documentation.
+        column_time (str): column name for the time column.
+        column_data (str): column name for the data column.
+        format (str): the format of the input data time measure.
+                      if the time is just the year you can leave
+                      the default format. Otherwise adapt it.
+        
+        Please check the documentation of the API for further 
+        description.
+        
+    Returns:
+    
+        str: a Json object to feed the API.
+
+    """
+    
+    
+    data = data[[column_time, column_data]].\
+           rename(columns={column_time:'ds',
+                           column_data:'y'})
+    
+    data = data.sort_values(by='ds')
+    data['ds'] = pd.to_datetime(data['ds'], format=format)
+    data['ds'] = data['ds'].astype(str).str[:10]
+    dataj = data.to_json(orient='records')
+    params = {
+
+        'fh' : fh,
+        'method_names' : [
+            'fbprophet',
+            'ts_panel-comb',
+            'ts_panel-all'
+        ],
+        'freq' : freq,
+        'method' : method,
+        'positive_only' : not (data['y']<0).any(),
+        'nowcast': '',
+        'inputs' : eval(dataj)
+    }
+    
+    params_j = json.dumps(params, ensure_ascii=False)
+    
+    return params_j
+
+def make_predictions(params, url):
+    """
+    Takes a set of parameters to call the API and retrieve the 
+    predictions.
+    
+    Parameters:
+    
+        params (str): a JSON containing the relevant parameters.
+                      Use prepare_query to get one.
+        
+        url (str): the URL to use for the request. Check the 
+                   the documentation for a list of them.
+    Returns:
+    
+        pandas.DataFrame: a pandas Dataframe containing the
+                          predictions from the API for the
+                          corresponding forecasting horizon.
+    
+    """
+    
+    headers = {'Content-Type': 'application/json'}
+    result = requests.post(url, data=params, headers=headers)
+    result = pd.DataFrame(json.loads(result.text))
+    
+    return result
+
+def forecast(ser, freq='A', fh = 10,endpoint='https://deciml-forecast.com/apiworkers/ts_panel-all'):
+    """
+    Takes a pandas series and makes a call to the forecasting API
+    to predict future values.
+    
+    This functions is inteded to be used as a pandas.DataFrame.apply
+    method. 
+    
+    Parameters:
+    
+        ser (str): a pandas.Series object.
+        fh (int): forecasting horizon to make the predictions.
+        freq (str): frequency for the predictions. 'A' for Annually
+                    'M' for Monthly, etc.
+    Returns:
+    
+        pandas.DataFrame: a pandas Dataframe containing the
+                          predictions from the API for the
+                          corresponding forecasting horizon.
+    
+    """
+    endpoint = 'https://deciml-forecast.com/apiworkers/ts_panel-all'
+    df = pd.DataFrame(ser).reset_index()
+    par = prepare_query(df, freq=freq, fh = fh, column_time='year', column_data=df.columns[1])
+    predictions = make_predictions(par, endpoint)
+    predictions = predictions.rename(columns={'ds':'year', 'yhat':df.columns[1]})
+    predictions = predictions.set_index('year')
+    print('Finished forecasting: ', df.columns[1])
+    return predictions[df.columns[1]]
+    
+    
