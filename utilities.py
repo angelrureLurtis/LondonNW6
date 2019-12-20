@@ -34,7 +34,8 @@ def remove_multidim_outliers(df, columns, target, IQRm):
 
 
 def prepare_query(data, fh=10, freq='M', method='sep-all', 
-                  column_time='ds', column_data='y', format='%Y'):
+                  column_time='ds', column_data='y', format='%Y',
+                  ind_vars=[]):
     """
     Takes a dataset and a set of parameters and preparares a
     query to be sent to the Alphamethods API.
@@ -54,6 +55,10 @@ def prepare_query(data, fh=10, freq='M', method='sep-all',
         format (str): the format of the input data time measure.
                       if the time is just the year you can leave
                       the default format. Otherwise adapt it.
+        ind_vars ([str]): list containing the name of the columns
+                          to include as independent variables. 
+                          Note that the endpoint needs to be
+                          compatible with this. 
         
         Please check the documentation of the API for further 
         description.
@@ -63,18 +68,17 @@ def prepare_query(data, fh=10, freq='M', method='sep-all',
         str: a Json object to feed the API.
 
     """
-    
-    
-    data = data[[column_time, column_data]].\
-           rename(columns={column_time:'ds',
-                           column_data:'y'})
+    use_cols = ind_vars + [column_data, column_time]
+    data = data[use_cols]\
+           .rename(columns={column_time:'ds',
+                            column_data:'y'})
     
     data = data.sort_values(by='ds')
     data['ds'] = pd.to_datetime(data['ds'], format=format)
     data['ds'] = data['ds'].astype(str).str[:10]
     dataj = data.to_json(orient='records')
-    params = {
 
+    params = {
         'fh' : fh,
         'method_names' : [
             'fbprophet',
@@ -147,5 +151,7 @@ def forecast(ser, freq='A', fh = 10,endpoint='https://deciml-forecast.com/apiwor
     predictions = predictions.set_index('year')
     print('Finished forecasting: ', df.columns[1])
     return predictions[df.columns[1]]
+
+
     
     
