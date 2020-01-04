@@ -32,10 +32,50 @@ def remove_multidim_outliers(df, columns, target, IQRm):
 
     return df_no
 
+def generate_params(data, fh, freq, method):
+    """
+    Generates the default parameters for the alphamethods library.
+    
+    Parameters:
+        
+        data (pandas.DataFrame): A pandas Dataframe with exactly
+                                 two columns called "ds" and "y"
+                                 or select them with column_time
+                                 and column_data.
+        fh (int): forecasting horizon to make the predictions.
+        freq (str): frequency for the predictions. 'A' for Annually
+                    'M' for Monthly, etc.
+        method (str): pending to be defined in the documentation.
+
+        Please check the documentation of the API for further 
+        description.
+        
+    Returns:
+    
+        str: a Json object to feed the API.
+
+    """
+    dataj = data.to_json(orient='records')
+
+    params = {
+            'fh' : fh,
+            'method_names' : [
+                'fbprophet',
+                'ts_panel-comb',
+                'ts_panel-all'
+            ],
+            'freq' : freq,
+            'method' : method,
+            'positive_only' : not (data['y']<0).any(),
+            'nowcast': '',
+            'inputs' : eval(dataj)
+        }
+    return params  
 
 def prepare_query(data, fh=10, freq='M', method='sep-all', 
                   column_time='ds', column_data='y', format='%Y',
-                  ind_vars=[]):
+                  ind_vars=[], params='default', just_set=False,
+                  test_set=False):
     """
     Takes a dataset and a set of parameters and preparares a
     query to be sent to the Alphamethods API.
@@ -59,7 +99,12 @@ def prepare_query(data, fh=10, freq='M', method='sep-all',
                           to include as independent variables. 
                           Note that the endpoint needs to be
                           compatible with this. 
-        
+        params (dict or str): if "default" the default parameters
+                              will be used. Otherwise a dictionary
+                              with extra parameters is expected.
+        only_set (bool): if True, no parameters are used, it just
+                         generates the train set.
+
         Please check the documentation of the API for further 
         description.
         
@@ -76,22 +121,49 @@ def prepare_query(data, fh=10, freq='M', method='sep-all',
     data = data.sort_values(by='ds')
     data['ds'] = pd.to_datetime(data['ds'], format=format)
     data['ds'] = data['ds'].astype(str).str[:10]
+    
+
+    if type(test_set)==pd.DataFrame:
+
+        test = prepare_query(data=test_set.fillna(1), column_data=column_data,
+                            column_time=column_time, ind_vars=ind_vars,
+                            just_set=just_set, test_set=True)
+        
     dataj = data.to_json(orient='records')
 
-    params = {
-        'fh' : fh,
-        'method_names' : [
-            'fbprophet',
-            'ts_panel-comb',
-            'ts_panel-all'
-        ],
-        'freq' : freq,
-        'method' : method,
-        'positive_only' : not (data['y']<0).any(),
-        'nowcast': '',
-        'inputs' : eval(dataj)
-    }
-    
+    if just_set:
+        if test_set is True: #Use is because could be a pandas
+                             # dataframe which booleans would
+                             # make this crash.
+            params = {
+                'test':eval(dataj)
+            }
+        else:
+            params = {
+                'train':eval(dataj)
+            }
+    else:
+        if params=='default':
+            params = generate_params(data, fh, freq, method)
+        elif type(params)!=dict:
+            print('Incorrect params parameter. It should be\
+                either a dictionary or "default"')
+            return None
+        else:
+            base_params = {
+                    'fh' : fh,
+                    'freq' : freq,
+                    'method' : method,
+                    'positive_only' : not (data['y']<0).any(),
+                    'nowcast': '',
+                    'inputs' : eval(dataj)
+                }
+            params = base_params.update(params)
+
+    if type(test_set)==pd.DataFrame:
+        test = json.loads(test)
+        params.update(test)
+
     params_j = json.dumps(params, ensure_ascii=False)
     
     return params_j
