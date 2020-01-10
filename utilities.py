@@ -194,7 +194,8 @@ def make_predictions(params, url):
     
     return result
 
-def forecast(ser, freq='A', fh = 10,endpoint='https://deciml-forecast.com/apiworkers/ts_panel-all'):
+def forecast(ser, freq='A', fh = 10,endpoint='https://deciml-forecast.com/apiworkers/ts_panel-all',
+             column_time='year'):
     """
     Takes a pandas series and makes a call to the forecasting API
     to predict future values.
@@ -217,10 +218,10 @@ def forecast(ser, freq='A', fh = 10,endpoint='https://deciml-forecast.com/apiwor
     """
     endpoint = 'https://deciml-forecast.com/apiworkers/ts_panel-all'
     df = pd.DataFrame(ser).reset_index()
-    par = prepare_query(df, freq=freq, fh = fh, column_time='year', column_data=df.columns[1])
+    par = prepare_query(df, freq=freq, fh = fh, column_time=column_time, column_data=df.columns[1])
     predictions = make_predictions(par, endpoint)
-    predictions = predictions.rename(columns={'ds':'year', 'yhat':df.columns[1]})
-    predictions = predictions.set_index('year')
+    predictions = predictions.rename(columns={'ds':column_time, 'yhat':df.columns[1]})
+    predictions = predictions.set_index(column_time)
     print('Finished forecasting: ', df.columns[1])
     return predictions[df.columns[1]]
 
